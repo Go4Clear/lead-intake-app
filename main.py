@@ -3,7 +3,7 @@ from datetime import datetime
 
 import stripe
 from fastapi import FastAPI, Form, HTTPException
-from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi.responses import HTMLResponse, RedirectResponse, Reequest
 from sqlalchemy import create_engine, Column, Integer, String, DateTime, Boolean
 from sqlalchemy.orm import declarative_base, sessionmaker
 
@@ -11,17 +11,16 @@ from sqlalchemy.orm import declarative_base, sessionmaker
 # --------------------
 # Config (ENV VARS)
 # --------------------
-STRIPE_SECRET_KEY = os.getenv("STRIPE_SECRET_KEY", "")
-PUBLIC_BASE_URL = os.getenv("PUBLIC_BASE_URL", "http://127.0.0.1:8000")
+STRIPE_SECRET_KEY = os.getenv("STRIPE_SECRET_KEY", "").strip()
+BASE_URL = os.getenv("APP_BASE_URL", "http://127.0.0.1:8000").rstrip("/")
 
 # Price (change whenever you want)
-PRICE_CENTS = int(os.getenv("PRICE_CENTS", "2500"))  # $25 default
+PRICE_CENTS = int(os.getenv("PRICE_CENTS", "2500"))  
 
 if not STRIPE_SECRET_KEY:
     # Local dev is fine, but you MUST set this for Stripe to work
     print("WARNING: STRIPE_SECRET_KEY is not set")
 
-STRIPE_SECRET_KEY = os.getenv("STRIPE_SECRET_KEY", "")
 stripe.api_key = STRIPE_SECRET_KEY
 
 
@@ -92,6 +91,12 @@ def require_paid_session(session_id: str) -> stripe.checkout.Session:
 def health_check():
     return {"status": "ok"}
 
+@app.get("/debug/base-url")
+def debug_base_url(key: str):
+    if key != os.getenv("ADMIN_KEY"):
+        raise HTTPException(status_code=401, detail="nope")    
+return {"APP_BASE_URL_env": os.getenv("APP_BASE_URL"),"BASE_URL_used": BASE_URL,}
+
 @app.get("/stripe-test")
 def stripe_test():
     if not stripe.api_key:
@@ -146,8 +151,8 @@ def create_checkout_session():
     if not STRIPE_SECRET_KEY:
         raise HTTPException(status_code=500, detail="Stripe not configured (missing STRIPE_SECRET_KEY)")
 
-    success_url = f"{PUBLIC_BASE_URL}/intake?session_id={{CHECKOUT_SESSION_ID}}"
-    cancel_url = f"{PUBLIC_BASE_URL}/"
+    success_url = f"{BASE_URL}/intake?session_id={{CHECKOUT_SESSION_ID}}"
+    cancel_url  = f"{BASE_URL}/"
 
     session = stripe.checkout.Session.create(
         mode="payment",
@@ -161,6 +166,7 @@ def create_checkout_session():
         }],
         success_url=success_url,
         cancel_url=cancel_url,
+        metadata={"product": "paid_lead_intake"}
     )
 
     return RedirectResponse(url=session.url, status_code=303)
