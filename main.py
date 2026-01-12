@@ -94,8 +94,12 @@ def health_check():
 @app.get("/debug/base-url")
 def debug_base_url(key: str):
     if key != os.getenv("ADMIN_KEY"):
-        raise HTTPException(status_code=401, detail="nope")    
-return {"APP_BASE_URL_env": os.getenv("APP_BASE_URL"),"BASE_URL_used": BASE_URL,}
+        raise HTTPException(status_code=401, detail="nope")
+  
+    return {
+        "APP_BASE_URL_env": os.getenv("APP_BASE_URL"),
+        "BASE_URL_VAR_USED": BASE_URL
+    }
 
 @app.get("/stripe-test")
 def stripe_test():
